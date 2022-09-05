@@ -1,0 +1,280 @@
+#!/usr/bin/env bash
+
+# Function that prints out the help text
+_help() {
+    echo "picshell: Show pictures in the terminal"
+
+    echo ""
+    echo "Usage: picshell [OPTION] PICTURE..."
+    printf "  %-20s\t%-54s\n" \
+        "-r, --remove-cache" "Remove cache directory" \
+        "-h, --help" "Print this help" \
+
+    echo ""
+    echo "Random: use \"(+/-)TAG,... \" for PICTURE"
+    echo "can add comma separated list for random picture with specified tags"
+    echo "add no prefix to TAG if you want to use term as search"
+    echo "add a '+' to TAG if you want to include the tag"
+    echo "add a '-' to TAG if you want to exclude the tag"
+    echo "for multiword tags, use '+' instead of <SPACE>"
+
+    echo "TODO"
+    echo "Examples: picshell mountain"
+    echo "          picshell raiden-shogun,+purple+light mikasa"
+    echo "          picshell gohan goku goten"
+    echo "          picshell space,-moon anime,space"
+}
+
+# Handle command line arguments
+case "$#" in
+    0)
+        # display help if no arguments are given
+        _help
+        echo ""
+        echo "You forgot to mention any picture! See help."
+        exit
+        ;;
+    *)
+        scale=1
+        pixel_perfect=0
+        use_ani=0
+        cache=1
+        cache_dir="$HOME/.cache/picshell"
+        start_idx=1
+
+        if [ "$1" == '-r' ] || [ "$1" == '--remove-cache' ]; then
+            rm -r -v "$cache_dir"
+            exit
+        elif [ "$1" == '-h' ] || [ "$1" == '--help' ]; then
+            _help
+            exit
+        fi
+
+        # Create cache directory
+        mkdir -p "$cache_dir"
+
+        # Parse description
+        images=()
+        for tags in "${@:$start_idx}"; do
+
+            # Delimit tags on comma to get tag_arr
+            IFS=',' read -ra tag_arr <<< "$tags"
+
+            tag_request=""
+            for tag in "${tag_arr[@]}"; do
+                if [ "${tag:0:1}" == '+' ]; then
+                    tag_request="${tag_request}+%2B${tag}"
+                else
+                    tag_request="${tag_request}+${tag}"
+                fi
+            done
+
+            url="https://wallhaven.cc/api/v1/search?q=${tag_request}&sorting=random"
+            query=$(curl -s "$url")
+
+            id_field=".data[0].id"
+            path_field=".data[0].path"
+
+            id=$(jq -n "$query" | jq -r "$id_field")
+            path=$(jq -n "$query" | jq -r "$path_field")
+
+            # Delimit path on comma to get tag_arr
+            IFS='.' read -ra path_arr <<< "$path"
+            file_type=${path_arr[${#path_arr[@]}-1]}
+
+            # TODO: get all_tags
+            # create cache file with tags and id
+            #echo "${all_tags} $id"
+
+            # Check if image is cached
+            is_cached=0
+            image="$cache_dir/$id.$file_type"
+            #image="$cache_dir/$all_tags-$id.$file_type"
+
+            if [ -f "$image" ]; then
+                is_cached=1
+            fi
+
+            # curl image
+            if [ ${is_cached} == 0 ]; then
+                curl -sL "$path" -o "$image"
+            fi
+            images+=("${image}")
+        done
+        ;;
+esac
+
+# Stitch images and display
+if [ $use_ani == 0 ]; then
+    for _i in "${images[@]}"; do
+        # Ground images (for centered images)
+        convert "$_i" -trim "$_i"
+    done
+
+    if [ ${#images[@]} != 1 ]; then
+        if [ $scale == 1 ]; then
+            # Get scale height to resize all images to
+            max_height=2160
+            for _i in "${images[@]}"; do
+                # Get size
+                width_height=$(identify "${_i}" | cut -f3 -d " ")
+                height=$(echo "$width_height" | cut -f2 -d "x")
+                (( height > max_height )) && max_height=${height}
+            done
+
+            # Only scale up to terminal height
+            terminal_height=2160
+            scale_height=$max_height
+            (( max_height > terminal_height )) && scale_height=$terminal_height
+
+            for _i in "${images[@]}"; do
+                # Scale
+                convert "$_i" -scale x"${scale_height}" "${_i}s"
+            done
+
+            # Stitch them
+            convert "${images[@]/%/s}" +append "$cache_dir/t.png"
+        else
+            # Stitch them
+            convert -background 'rgba(0, 0, 0, 0' "${images[@]}" -gravity South +append "$cache_dir/t.png"
+        fi
+        display_file="$cache_dir/t.png"
+    else
+        display_file="${images[0]}"
+    fi
+
+    # display
+    if [ $pixel_perfect == 1 ]; then
+        # pre scale for pixel perfect chafa
+        convert "$display_file" -scale 800% "${display_file}p"
+
+        chafa -w 9 --symbols all --scale 1 "${display_file}p"
+    else
+        chafa --symbols all "$display_file"
+    fi
+
+    # cleanup
+    for _i in "${images[@]}"; do
+        if [ "$cache" == 0 ]; then
+            rm -f "${_i}"
+        fi
+        rm -f "${_i}s"
+    done
+    rm -f "$cache_dir/t.png"
+    rm -f "$cache_dir/t.pngp"
+else
+    if [ ${#images[@]} != 1 ]; then
+        if [ $scale == 1 ]; then
+            # Get scale height to resize all images to
+            max_height=2160
+            for _i in "${images[@]}"; do
+                # Get size
+                width_height=$(identify "${_i}" | grep "\[0\]" | cut -f3 -d " ")
+                height=$(echo "$width_height" | cut -f2 -d "x")
+                (( height > max_height )) && max_height=${height}
+            done
+
+            # Only scale up to terminal height
+            terminal_height=2160
+            scale_height=$max_height
+            (( max_height > terminal_height )) && scale_height=$terminal_height
+
+            for _i in "${images[@]}"; do
+                # Scale
+                convert "${_i}" -scale x"${scale_height}" "${_i}s"
+            done
+        else
+            for _i in "${images[@]}"; do
+                # Create tmp file to modify
+                cp "${_i}" "${_i}s"
+            done
+        fi
+
+        width=0
+        min_frame=100
+        sum_widths=("0")
+
+        for _i in "${images[@]}"; do
+            # Get size
+            width_height=$(identify "${_i}s" | grep "\[0\]" | cut -f3 -d " ")
+            width=$(echo "$width_height" | cut -f1 -d "x")
+            height=$(echo "$width_height" | cut -f2 -d "x")
+
+            sum_width=$((sum_width + width))
+            sum_widths+=("${sum_width}")
+
+            heights+=("${height}")
+            (( height > max_height )) && max_height=${height}
+
+            frame=$(identify "${_i}s" | wc -l)
+            frames+=("${frame}")
+            (( frame < min_frame )) && min_frame=${frame}
+        done
+
+        specified_frame=$min_frame
+
+        # Correct gravity for first image
+        convert "${images[0]/%/s}" \
+            -repage "${sum_widths[1]}x${max_height}+0+$((max_height - heights[0]))" \
+            "${images[0]/%/s}"
+
+        coalesce_str="convert ${images[0]/%/s}"
+
+        for _loop_num in "${!images[@]}"; do
+            frame=${frames[_loop_num]}
+
+            if [ "$frame" -gt "$specified_frame" ]; then
+                # Delete extra frames from gif
+                extra_frames=$(( frame - specified_frame ))
+                extra_idx_del_str=""
+
+                for (( _extra_num=0; _extra_num<extra_frames; _extra_num++ )); do
+                    idx=$(( _extra_num * frame / extra_frames ))
+                    extra_idx_del_str="$extra_idx_del_str$idx,"
+                done
+
+                convert "${images[_loop_num]/%/s}" -delete "$extra_idx_del_str" "${images[_loop_num]/%/s}"
+            else
+                # Insert extra frames into gif
+                extra_frames=$(( specified_frame - frame ))
+
+                for (( _extra_num=0; _extra_num<extra_frames; _extra_num++ )); do
+                    idx=$(( _extra_num * frame / extra_frames + _extra_num ))
+                    convert "${images[_loop_num]/%/s}" "${images[_loop_num]/%/s}[$idx]" -insert $idx "${images[_loop_num]/%/s}"
+                done
+            fi
+
+            if [[ ${_loop_num} -gt 0 ]]; then
+                coalesce_str="${coalesce_str} \
+                    -repage ${sum_widths[${#sum_widths[@]}-1]}x${max_height} -coalesce \
+                    null: \( ${images[_loop_num]/%/s} -coalesce \) \
+                    -geometry +${sum_widths[_loop_num]}+$((max_height - heights[_loop_num])) \
+                    -layers Composite \
+                "
+            fi
+        done
+
+        display_file="$cache_dir/t.gif"
+
+        coalesce_str="${coalesce_str} $display_file"
+        eval "$coalesce_str"
+
+        # Cleanup
+        for _i in "${images[@]}"; do
+            if [ "$cache" == 0 ]; then
+                rm -f "${_i}"
+            fi
+            rm -f "${_i}s"
+        done
+
+        trap ctrl_c INT
+        function  ctrl_c() {
+            rm -f "$display_file"
+        }
+    else
+        display_file="${images[0]}"
+    fi
+
+    # Display
+    chafa --format symbols --symbols all "$display_file"
+fi
