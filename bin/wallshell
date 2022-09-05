@@ -19,10 +19,11 @@ _help() {
     echo "for multiword tags, use '+' instead of <SPACE>"
 
     echo ""
-    echo "Examples: wallshell mountain"
-    echo "          wallshell raiden-shogun,+purple+light mikasa"
+    echo "Examples: wallshell city"
+    echo "          wallshell mountain,+tree"
+    echo "          wallshell raiden-shogun,ratios=portrait"
     echo "          wallshell gohan goku goten"
-    echo "          wallshell space,-moon anime,space"
+    echo "          wallshell space,-moon anime,space anime,space"
 }
 
 # Handle command line arguments
@@ -61,15 +62,19 @@ case "$#" in
             IFS=',' read -ra tag_arr <<< "$tags"
 
             tag_request=""
+            ratios_request=""
+
             for tag in "${tag_arr[@]}"; do
-                if [ "${tag:0:1}" == '+' ]; then
+                if [ "${tag:0:7}" == 'ratios=' ]; then
+                    ratios_request="${tag}"
+                elif [ "${tag:0:1}" == '+' ]; then
                     tag_request="${tag_request}+%2B${tag}"
                 else
                     tag_request="${tag_request}+${tag}"
                 fi
             done
 
-            url="https://wallhaven.cc/api/v1/search?q=${tag_request}&sorting=random"
+            url="https://wallhaven.cc/api/v1/search?q=${tag_request}&${ratios_request}&sorting=random"
             query=$(curl -s "$url")
 
             id_field=".data[0].id"
@@ -84,12 +89,11 @@ case "$#" in
 
             # TODO: get all_tags
             # create cache file with tags and id
-            #echo "${all_tags} $id"
+            echo "$tags-$id"
 
             # Check if image is cached
             is_cached=0
-            image="$cache_dir/$id.$file_type"
-            #image="$cache_dir/$all_tags-$id.$file_type"
+            image="$cache_dir/$tags-$id.$file_type"
 
             if [ -f "$image" ]; then
                 is_cached=1
