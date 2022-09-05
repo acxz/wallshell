@@ -18,7 +18,7 @@ _help() {
     echo "add a '-' to TAG if you want to exclude the tag"
     echo "for multiword tags, use '+' instead of <SPACE>"
 
-    echo "TODO"
+    echo ""
     echo "Examples: picshell mountain"
     echo "          picshell raiden-shogun,+purple+light mikasa"
     echo "          picshell gohan goku goten"
