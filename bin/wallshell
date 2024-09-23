@@ -41,7 +41,6 @@ case "$#" in
         exit
         ;;
     *)
-        use_ani=0
         cache=1
         cache_dir="$HOME/.cache/wallshell"
         start_idx=1
@@ -111,7 +110,7 @@ case "$#" in
         ;;
 esac
 
+use_ani=0
 scale=1
 pixel_perfect=0
-# TODO: namespace the functions with imgshl_ i.e. imgshl_display
-_display images $use_ani $scale $pixel_perfect $cache "$cache_dir"
+imgshl_display images $use_ani $scale $pixel_perfect $cache "$cache_dir"
