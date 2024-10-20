@@ -1,4 +1,6 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
-mkdir -pv /usr/local
-cp -rv bin /usr/local
+system_user_dir="/usr/local/"
+
+mkdir -pv "${1:-${system_user_dir}}"
+cp -rv bin "${1:-${system_user_dir}}"

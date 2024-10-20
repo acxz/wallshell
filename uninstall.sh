@@ -1,4 +1,6 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
-rm -v /usr/local/bin/wallshell
-rmdir -v /usr/local/bin
+system_user_dir="/usr/local/"
+
+rm -v "${1:-${system_user_dir}}bin/wallshell"
+rmdir -v "${1:-${system_user_dir}}bin"
