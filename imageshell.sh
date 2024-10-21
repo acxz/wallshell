@@ -23,11 +23,6 @@ function imgshl_stitch_images () {
     scale=${2:?}
     cache_dir=${3:?}
 
-    for _i in "${_images[@]}"; do
-        # Ground images (for centered images)
-        magick "$_i" -trim "$_i"
-    done
-
     if [ ${#_images[@]} != 1 ]; then
         if [ $scale == 1 ]; then
             # Get scale height to resize all images to
@@ -44,16 +39,13 @@ function imgshl_stitch_images () {
             scale_height=$max_height
             (( max_height > terminal_height )) && scale_height=$terminal_height
 
-            for _i in "${_images[@]}"; do
-                # Scale
-                magick "$_i" -scale x"${scale_height}" "${_i}s"
-            done
-
-            # Stitch them
-            magick "${_images[@]/%/s}" +append "$cache_dir/t.tiff"
+            # Trim, scale, and stitch them
+            magick "${_images[@]}" -trim -scale x"${scale_height}" +append "$cache_dir/t.tiff"
         else
-            # Stitch them
-            magick -background 'rgba(0, 0, 0, 0' "${_images[@]}" -gravity South +append "$cache_dir/t.tiff"
+            # Trim and stitch them
+            # PNG: hack for pokeshell, because chafa doesn't like pokeshell tiff images
+            # at small image sizes png vs tiff doesn't cause any noticeable slowdown anyway
+            magick -background 'rgba(0, 0, 0, 0' "${_images[@]}" -trim -gravity South +append PNG:"$cache_dir/t.tiff"
         fi
         display_file="$cache_dir/t.tiff"
     else
@@ -85,13 +77,11 @@ function imgshl_cleanup_images () {
     cache=${2:?}
     cache_dir=${3:?}
 
-    for _i in "${_images[@]}"; do
-        if [ "$cache" == 0 ]; then
+    if [ "$cache" == 0 ]; then
+        for _i in "${_images[@]}"; do
             rm -f "${_i}"
-        fi
-        rm -f "${_i}s"
-        rm -f "${_i}p"
-    done
+        done
+    fi
     rm -f "$cache_dir/t.tiff"
 }
 
