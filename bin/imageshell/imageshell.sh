@@ -44,13 +44,8 @@ function imgshl_stitch_images () {
             scale_height=$max_height
             (( max_height > terminal_height )) && scale_height=$terminal_height
 
-            for _i in "${_images[@]}"; do
-                # Scale
-                magick "$_i" -scale x"${scale_height}" "${_i}s"
-            done
-
-            # Stitch them
-            magick "${_images[@]/%/s}" +append "$cache_dir/t.tiff"
+            # Scale and stitch them
+            magick "${_images[@]}" -scale x"${scale_height}" +append "$cache_dir/t.tiff"
         else
             # Stitch them
             magick -background 'rgba(0, 0, 0, 0' "${_images[@]}" -gravity South +append "$cache_dir/t.tiff"
@@ -85,13 +80,11 @@ function imgshl_cleanup_images () {
     cache=${2:?}
     cache_dir=${3:?}
 
-    for _i in "${_images[@]}"; do
-        if [ "$cache" == 0 ]; then
+    if [ "$cache" == 0 ]; then
+        for _i in "${_images[@]}"; do
             rm -f "${_i}"
-        fi
-        rm -f "${_i}s"
-        rm -f "${_i}p"
-    done
+        done
+    fi
     rm -f "$cache_dir/t.tiff"
 }
 
