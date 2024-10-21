@@ -3,7 +3,7 @@
 # import imageshell functions
 # https://stackoverflow.com/q/192292
 MY_DIR=$(dirname $(readlink -f $0))
-source $MY_DIR/../lib/imageshell.sh
+source $MY_DIR/imageshell/imageshell.sh
 
 # Function that prints out the help text
 _help() {
