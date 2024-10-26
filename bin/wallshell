@@ -46,7 +46,7 @@ case "$#" in
         start_idx=1
 
         if [ "$1" == '-r' ] || [ "$1" == '--remove-cache' ]; then
-            rm -r -v "$cache_dir"
+            rm -r -v "$cache_dir" | grep -v "removed '"
             exit
         elif [ "$1" == '-h' ] || [ "$1" == '--help' ]; then
             _help
