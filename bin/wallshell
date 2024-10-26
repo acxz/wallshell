@@ -112,5 +112,6 @@ esac
 
 use_ani=0
 scale=1
+trim=0
 pixel_perfect=0
-imgshl_display images $use_ani $scale $pixel_perfect $cache "$cache_dir"
+imgshl_display images $use_ani $scale $trim $pixel_perfect $cache "$cache_dir"
